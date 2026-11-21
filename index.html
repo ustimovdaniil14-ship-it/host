@@ -13,7 +13,7 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" type="image/png" href="/icon.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<title>KaratUp — Демо</title>
+<title>KaratUp</title>
 <style>
 :root{--bg:#0b0b0e;--bg2:#15151a;--panel:#1a1a20;--panel2:#202028;--line:#2b2b34;--text:#f4f4f6;--muted:#8d8d99;--a:#ffd60a;--a2:#ff7a18;--a3:#e53b2c;--win:#3ddc84;--lose:#ff4d4d;--btn-text:#1a1400}
 [data-theme="neon"]{--bg:#06050e;--bg2:#0f0c20;--panel:#141028;--panel2:#1b1536;--line:#2d2455;--a:#00f0ff;--a2:#b14dff;--a3:#ff2bd6;--btn-text:#021014}
@@ -269,7 +269,7 @@ input[type=number]{font-size:20px}
   <!-- ===== КАТАЛОГ ===== -->
   <section id="sc-cat" hidden>
     <h2>🛍 Каталог подарков</h2>
-    <p style="color:var(--muted);font-size:13px;margin:0 0 10px">Покупайте за ⭐ и улучшайте. Всё виртуально.</p>
+    <p style="color:var(--muted);font-size:13px;margin:0 0 10px">Покупайте за ⭐ и улучшайте.</p>
     <div class="row" style="margin-bottom:12px">
       <button class="chip" data-sort="asc">Сначала дешёвые</button><button class="chip" data-sort="desc">Сначала дорогие</button>
     </div>
@@ -283,7 +283,7 @@ input[type=number]{font-size:20px}
     <div class="grid" id="invGrid"></div>
   </section>
 
-  <div class="foot">KaratUp · демо-версия · 18+ · только для ознакомления</div>
+  <div class="foot">KaratUp · 18+</div>
 </div>
 
 <nav class="nav"><div class="in">
@@ -296,11 +296,11 @@ input[type=number]{font-size:20px}
 <div class="modal" id="dep"><div class="sheet">
   <button class="close" data-close>×</button>
   <h3>Пополнение ⭐</h3>
-  <p>Демо-режим: звёзды виртуальные. Минимум 100 ⭐, максимум 100 000 ⭐.</p>
-  <input type="number" id="depAmt" placeholder="Введите сумму" min="100" max="100000" value="500" inputmode="numeric">
+  <p>Оплата звёздами Telegram: 1 ⭐ Telegram = 1 ⭐ в игре. От 100 до 10 000 ⭐ за раз.</p>
+  <input type="number" id="depAmt" placeholder="Введите сумму" min="100" max="10000" value="500" inputmode="numeric">
   <div class="grid3" id="quick"></div>
   <div class="err" id="depErr"></div>
-  <button class="go" id="depOk" style="margin-top:4px">Пополнить</button>
+  <button class="go" id="depOk" style="margin-top:4px">Оплатить звёздами Telegram</button>
 </div></div>
 
 <!-- настройки -->
@@ -315,7 +315,6 @@ input[type=number]{font-size:20px}
   <div class="setrow" style="margin-bottom:6px"><input type="text" id="usrIn" placeholder="@username" autocapitalize="off" autocomplete="off" spellcheck="false"><button class="sw" id="usrGo">Войти</button></div>
   <button class="reset" id="inst" hidden style="margin-top:8px">📲 Установить на главный экран</button>
   <button class="reset" id="openAdm" style="margin-top:8px">🛠 Админ-панель</button>
-  <button class="reset" id="reset">Сбросить демо (баланс 1 000 ⭐, пустой инвентарь)</button>
 </div></div>
 
 <!-- выбор предметов-источника -->
@@ -416,7 +415,7 @@ const ico=k=>IMG[k]?`<img class="gi" src="${IMG[k]}" alt="" draggable="false">`:
 const rar=p=>p<500?{n:"Обычный",c:"#9aa0aa"}:p<900?{n:"Необычный",c:"#3ddc84"}:p<1500?{n:"Редкий",c:"#4cc9f0"}:p<2300?{n:"Эпический",c:"#c084fc"}:{n:"Легендарный",c:"#ffd60a"};
 const THEMES=[["gold","Золото","#ffd60a,#e53b2c"],["gold2","Роскошь","#f7d774,#8a5a00"],["neon","Неон","#00f0ff,#ff2bd6"],["ocean","Океан","#4cc9f0,#3a0ca3"],["sunset","Закат","#ffb347,#c2185b"],["emerald","Изумруд","#2ee59d,#0b7a5a"],["violet","Фиолет","#c084fc,#6d28d9"],["crimson","Кармин","#ff5a5f,#9f1239"],["ice","Лёд","#e0f2fe,#38bdf8"],["mono","Моно","#ffffff,#525252"],["candy","Конфета","#ff9ee5,#a855f7"],["matrix","Матрица","#39ff14,#0a6e05"],["cyber","Кибер","#fcee0a,#05d9e8"],["light","Светлая","#f5b700,#e5481b"]];
 const MULTS=[2,3,5,10,20,50,100];
-const R=115,CIRC=2*Math.PI*R,START=1000,EDGE=94,SELL=.9;
+const R=115,CIRC=2*Math.PI*R,EDGE=94,SELL=.9;
 const chanceOf=m=>Math.min(95,EDGE/m);
 let S={bal:0,inv:[],stake:100,mode:"item",mult:2,target:null,sort:"asc",hist:[],games:0,wins:0,profit:0,theme:"gold",sound:true,vol:.7};
 try{const x=JSON.parse(localStorage.getItem("karatup3")||"null");if(x)S={...S,...x}}catch(e){}
@@ -802,25 +801,40 @@ $("itmBody").onclick=async e=>{
     catch(err){toast(err.message)}
   }
 };
-// пополнение (виртуальное)
-const QUICK=[100,500,1000,5000,10000,100000];
+// пополнение звёздами Telegram (Stars): сервер создаёт счёт, баланс зачисляется после оплаты
+const QUICK=[100,500,1000,2500,5000,10000],MAX_DEP=10000;
 $("quick").innerHTML=QUICK.map(v=>`<button class="chip" data-q="${v}">${fmt(v)} ⭐</button>`).join("");
 $("openDep").onclick=()=>{AU.init();AU.click();$("depErr").textContent="";openM("dep")};
 $("quick").onclick=e=>{const b=e.target.closest("[data-q]");if(b){AU.click();$("depAmt").value=b.dataset.q}};
+let paying=false;
 $("depOk").onclick=async()=>{
-  if(isBanned())return;
+  if(isBanned()||paying)return;
   AU.init();
   const v=Math.floor(parseFloat($("depAmt").value));
   if(!v||v<100){$("depErr").textContent="Минимальное пополнение — 100 ⭐";AU.lose();return}
-  if(v>100000){$("depErr").textContent="Максимальное пополнение — 100 000 ⭐";AU.lose();return}
-  try{const r=await act("deposit",{amount:v});applyMe(r);closeM();animBal(S.bal);render(spinning);AU.coin();toast("+"+fmt(v)+" ⭐ зачислено (демо)")}
-  catch(e){$("depErr").textContent=e.message;AU.lose()}
+  if(v>MAX_DEP){$("depErr").textContent="Максимальное пополнение — "+fmt(MAX_DEP)+" ⭐";AU.lose();return}
+  if(!TG||!TG.openInvoice){$("depErr").textContent="Оплата доступна только в Telegram: откройте игру через бота";AU.lose();return}
+  paying=true;$("depOk").disabled=true;$("depErr").textContent="";
+  const done=()=>{paying=false;$("depOk").disabled=false};
+  try{
+    const r=await act("deposit/invoice",{amount:v});
+    TG.openInvoice(r.link,async st=>{
+      if(st==="paid"){
+        closeM();toast("Оплата прошла, зачисляем ⭐…");buzz("win");
+        const before=S.bal;
+        for(let i=0;i<12&&S.bal<=before;i++){await new Promise(r=>setTimeout(r,1200));await syncMe(true)}
+        if(S.bal>before)toast("+"+fmt(S.bal-before)+" ⭐ зачислено");
+        else toast("Платёж принят, ⭐ скоро появятся на балансе");
+        done();
+      }else if(st==="failed"){$("depErr").textContent="Оплата не прошла, попробуйте ещё раз";AU.lose();done()}
+      else done(); // cancelled / pending
+    });
+  }catch(e){$("depErr").textContent=e.message;AU.lose();done()}
 };
 document.querySelectorAll("[data-close]").forEach(b=>b.onclick=closeM);
 document.querySelectorAll(".modal").forEach(m=>m.addEventListener("click",e=>{if(e.target===m)closeM()}));
 $("openSet").onclick=()=>{AU.init();AU.click();renderThemes();render(spinning);openM("set")};
 $("themes").onclick=e=>{const t=e.target.closest("[data-t]");if(!t)return;AU.init();AU.click();S.theme=t.dataset.t;applyTheme();renderThemes();save()};
-$("reset").onclick=async()=>{if(spinning)return;try{const r=await act("reset",{});applyMe(r);S={...S,target:null,hist:[],stake:100};sel=[];closeM();render();toast("Демо сброшено")}catch(e){toast(e.message)}};
 
 /* ================= ОБЩЕЕ ДЛЯ НОВЫХ ИГР ================= */
 S.mStake=S.mStake||100;S.mN=S.mN||3;S.cStake=S.cStake||100;S.cAuto=S.cAuto||0;
@@ -911,6 +925,41 @@ $("admBc").onclick=()=>{
 };
 
 addEventListener("visibilitychange",()=>{if(!document.hidden)syncMe()});
+
+/* --- синхронизация с сервером, бан и рассылки --- */
+function checkBan(){
+  const b=isBanned();
+  $("ban").classList.toggle("open",b);
+  if(b)$("banName").textContent="@"+S.user;
+}
+let bcShown=null;
+function checkBc(){
+  const bc=ME&&ME.bc;
+  if(!bc||bcShown===bc.id||isBanned())return;
+  bcShown=bc.id;
+  $("bcTxt").textContent=bc.text;
+  $("bcTime").textContent=new Date(bc.ts).toLocaleString("ru-RU");
+  $("bcM").classList.add("open");
+  $("bcOk").onclick=async()=>{
+    $("bcM").classList.remove("open");
+    try{await act("bc/seen",{id:bc.id})}catch(e){}
+    if(ME&&ME.bc&&ME.bc.id===bc.id)ME.bc=null;
+    bcShown=null;
+  };
+}
+async function syncMe(force){
+  if(!force&&(inflight||spinning||document.hidden))return;
+  let m;try{m=await call("me")}catch(e){return}
+  if(!force&&(inflight||spinning))return;
+  const sig=m.bal+"|"+m.v+"|"+m.banned+"|"+(m.inv||[]).map(i=>i.uid).join(",");
+  ME=m;
+  if(force||sig!==lastSig){
+    lastSig=sig;applyMe(m);
+    sel=sel.filter(u=>S.inv.some(i=>i.uid===u));
+    animBal(S.bal);render(spinning);
+  }
+  checkBan();checkBc();
+}
 
 /* --- запуск --- */
 async function boot(){

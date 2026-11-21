@@ -7,7 +7,7 @@ const path = require("path");
 const { Pool, types } = require("pg");
 
 /* ---------- правила игры и цены (источник правды — сервер) ---------- */
-const START = 1000, EDGE = 94, SELL = 0.9;
+const START = 0, EDGE = 94, SELL = 0.9; // новые аккаунты начинают с 0 ⭐: баланс только за оплату Telegram Stars
 const MULTS = [2, 3, 5, 10, 20, 50, 100];
 const nm = s => String(s || "").trim().replace(/^@+/, "").toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 32);
 const rand = () => crypto.randomInt(0, 1_000_000_000) / 1e9;
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS users (
   username    TEXT UNIQUE NOT NULL,
   tg_id       BIGINT UNIQUE,
   secret_hash TEXT,
-  bal         BIGINT NOT NULL DEFAULT 1000 CHECK (bal >= 0),
+  bal         BIGINT NOT NULL DEFAULT 0 CHECK (bal >= 0),
   banned      BOOLEAN NOT NULL DEFAULT false,
   v           INT NOT NULL DEFAULT 0,
   games       INT NOT NULL DEFAULT 0,
@@ -48,6 +48,16 @@ CREATE TABLE IF NOT EXISTS items (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS items_user_idx ON items(user_id, seq);
+
+CREATE TABLE IF NOT EXISTS payments (
+  id         BIGSERIAL PRIMARY KEY,
+  charge_id  TEXT UNIQUE NOT NULL,          -- telegram_payment_charge_id: защита от двойного зачисления
+  user_id    BIGINT NOT NULL REFERENCES users(id),
+  stars      BIGINT NOT NULL,
+  payload    TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS payments_user_idx ON payments(user_id, id);
 
 CREATE TABLE IF NOT EXISTS broadcasts (
   id   BIGSERIAL PRIMARY KEY,
@@ -173,29 +183,98 @@ async function api(method, body) {
   return r.json();
 }
 
+// Пополнение звёздами Telegram: 1 Telegram Star = 1 ⭐ в игре
+const MIN_DEP = 100, MAX_DEP = Math.max(MIN_DEP, parseInt(process.env.MAX_DEPOSIT, 10) || 10000);
+const DEP_RE = /^dep:(\d+)$/;
+
+async function createInvoice(user, amount) {
+  if (!TOKEN) throw new HttpError(503, "Оплата не настроена на сервере (нет BOT_TOKEN)");
+  const r = await api("createInvoiceLink", {
+    title: `${amount} ⭐ для KaratUp`,
+    description: `Пополнение баланса KaratUp на ${amount} ⭐`,
+    payload: `dep:${user.id}`,
+    provider_token: "",            // для Telegram Stars токен провайдера не нужен
+    currency: "XTR",
+    prices: [{ label: `${amount} ⭐`, amount }],
+  });
+  if (!r.ok) { console.error("createInvoiceLink:", r.description); throw new HttpError(502, "Не удалось создать счёт, попробуйте позже"); }
+  return r.result;
+}
+
+// Telegram ждёт ответ на pre_checkout_query не дольше 10 секунд
+async function preCheckout(q) {
+  let ok = false, err = "Платёж отклонён";
+  try {
+    const m = DEP_RE.exec(q.invoice_payload || "");
+    const amt = q.total_amount;
+    if (m && q.currency === "XTR" && Number.isInteger(amt) && amt >= MIN_DEP && amt <= MAX_DEP) {
+      const { rows } = await pool.query("SELECT banned FROM users WHERE id=$1 AND tg_id=$2", [+m[1], q.from.id]);
+      if (rows[0] && !rows[0].banned) ok = true;
+      else if (rows[0]) err = "Аккаунт заблокирован";
+    }
+  } catch (e) { console.error("pre_checkout:", e.message); err = "Ошибка сервера, попробуйте позже"; }
+  await api("answerPreCheckoutQuery", { pre_checkout_query_id: q.id, ok, ...(ok ? {} : { error_message: err }) });
+}
+
+// Зачисление идемпотентно: charge_id уникален, повторная доставка апдейта ничего не добавит
+async function paid(m) {
+  const p = m.successful_payment;
+  const mm = DEP_RE.exec(p.invoice_payload || "");
+  if (!mm || p.currency !== "XTR") { console.error("Неизвестный платёж:", JSON.stringify(p)); return; }
+  const amt = p.total_amount;
+  const bal = await tx(async c => {
+    const u = (await c.query("SELECT * FROM users WHERE id=$1 AND tg_id=$2 FOR UPDATE", [+mm[1], m.from.id])).rows[0];
+    if (!u) throw new Error("пользователь не найден для платежа " + p.telegram_payment_charge_id);
+    const ins = await c.query(
+      "INSERT INTO payments(charge_id,user_id,stars,payload) VALUES($1,$2,$3,$4) ON CONFLICT (charge_id) DO NOTHING RETURNING id",
+      [p.telegram_payment_charge_id, u.id, amt, p.invoice_payload]);
+    if (!ins.rowCount) return null;                       // уже зачислено
+    return (await c.query("UPDATE users SET bal=LEAST(bal+$2, 1000000000000) WHERE id=$1 RETURNING bal", [u.id, amt])).rows[0].bal;
+  });
+  if (bal !== null) {
+    console.log(`Платёж ${p.telegram_payment_charge_id}: +${amt} ⭐ → user ${mm[1]}`);
+    try { await api("sendMessage", { chat_id: m.chat.id, text: `✅ Оплата получена: +${amt} ⭐\nБаланс: ${bal} ⭐` }); } catch (e) { /* не критично */ }
+  }
+}
+
 async function init() {
-  if (!TOKEN) return console.log("BOT_TOKEN не задан — Telegram-бот отключён");
+  if (!TOKEN) return console.log("BOT_TOKEN не задан — Telegram-бот и оплата отключены");
   const url = appUrl();
   if (!url.startsWith("https://")) return console.log("Нет https PUBLIC_URL — вебхук бота не установлен");
   try {
-    const r = await api("setWebhook", { url: `${url}/tg/webhook/${secret}`, allowed_updates: ["message"], drop_pending_updates: true });
+    // drop_pending_updates НЕ ставим: иначе при перезапуске сервера можно потерять неполученные платежи
+    const r = await api("setWebhook", { url: `${url}/tg/webhook/${secret}`, allowed_updates: ["message", "pre_checkout_query"] });
     console.log("Telegram setWebhook:", r.ok ? "ok" : r.description);
     await api("setChatMenuButton", { menu_button: { type: "web_app", text: "🎮 Играть", web_app: { url } } });
-    await api("setMyCommands", { commands: [{ command: "start", description: "Открыть KaratUp" }] });
+    await api("setMyCommands", { commands: [
+      { command: "start", description: "Открыть KaratUp" },
+      { command: "paysupport", description: "Помощь по платежам" },
+    ] });
   } catch (e) { console.error("Telegram init error:", e.message); }
 }
 
 async function handle(update) {
-  const m = update && update.message;
-  if (!m || !m.text || !m.text.startsWith("/start")) return;
-  await api("sendMessage", {
-    chat_id: m.chat.id,
-    text: "⭐ KaratUp — демо с виртуальными звёздами и подарками. Нажмите кнопку, чтобы играть.",
-    reply_markup: { inline_keyboard: [[{ text: "🎮 Играть", web_app: { url: appUrl() } }]] },
-  });
+  if (!update) return;
+  if (update.pre_checkout_query) return preCheckout(update.pre_checkout_query);
+  const m = update.message;
+  if (!m) return;
+  if (m.successful_payment) return paid(m);
+  if (!m.text) return;
+  if (m.text.startsWith("/paysupport")) {
+    const c = process.env.SUPPORT_CONTACT || "администратору";
+    return void await api("sendMessage", { chat_id: m.chat.id,
+      text: `По вопросам оплаты и возвратов Telegram Stars напишите ${c}. Укажите свой @username в игре и время платежа.` });
+  }
+  if (m.text.startsWith("/start")) {
+    await api("sendMessage", {
+      chat_id: m.chat.id,
+      text: "⭐ KaratUp — апгрейды подарков. Пополняйте баланс звёздами Telegram прямо в приложении. 18+",
+      reply_markup: { inline_keyboard: [[{ text: "🎮 Играть", web_app: { url: appUrl() } }]] },
+    });
+  }
 }
 
-return { init, handle, secret, TOKEN };
+return { init, handle, createInvoice, secret, TOKEN, MIN_DEP, MAX_DEP };
 })();
 
 /* ---------- приложение ---------- */
@@ -225,8 +304,13 @@ const newSecret = () => crypto.randomBytes(18).toString("hex");
 app.get("/healthz", (req, res) => res.json({ ok: true }));
 app.post("/tg/webhook/:s", H(async (req, res) => {
   if (!bot.secret || !auth.safeEq(req.params.s, bot.secret)) return res.sendStatus(404);
+  try { await bot.handle(req.body); }
+  catch (e) {
+    console.error("bot", e.message);
+    // при сбое зачисления отвечаем 500 — Telegram повторит доставку, деньги не потеряются
+    if (req.body && req.body.message && req.body.message.successful_payment) return res.sendStatus(500);
+  }
   res.sendStatus(200);
-  bot.handle(req.body).catch(e => console.error("bot", e.message));
 }));
 
 /* ---------- вход ---------- */
@@ -314,22 +398,14 @@ app.post("/api/sell", A, H(async (req, res) => {
   }));
 }));
 
-app.post("/api/deposit", A, H(async (req, res) => {
-  const v = int(req.body.amount, 100, 100000, "Сумма пополнения: от 100 до 100 000 ⭐");
-  res.json(await tx(async c => {
-    const u = await need(c, req.uid); play(u);
-    await c.query("UPDATE users SET bal=bal+$2 WHERE id=$1", [u.id, v]);
-    return snap(c, { ...u, bal: u.bal + v });
-  }));
-}));
-
-app.post("/api/reset", A, H(async (req, res) => {
-  res.json(await tx(async c => {
-    const u = await need(c, req.uid); play(u);
-    await c.query("DELETE FROM items WHERE user_id=$1", [u.id]);
-    const r = (await c.query("UPDATE users SET bal=$2,games=0,wins=0,profit=0 WHERE id=$1 RETURNING *", [u.id, START])).rows[0];
-    return snap(c, r);
-  }));
+// Пополнение: сервер создаёт счёт в Telegram Stars, баланс растёт только после successful_payment (см. bot.handle)
+app.post("/api/deposit/invoice", A, auth.limit(20, 60000), H(async (req, res) => {
+  const v = int(req.body.amount, bot.MIN_DEP, bot.MAX_DEP, `Сумма пополнения: от ${bot.MIN_DEP} до ${bot.MAX_DEP} ⭐`);
+  const u = (await pool.query("SELECT * FROM users WHERE id=$1", [req.uid])).rows[0];
+  if (!u) throw new HttpError(401, "Требуется вход");
+  play(u);
+  if (!u.tg_id) throw new HttpError(403, "Оплата звёздами доступна только в Telegram — откройте игру через бота");
+  res.json({ link: await bot.createInvoice(u, v) });
 }));
 
 /* ---------- апгрейд ---------- */
@@ -408,7 +484,7 @@ app.post("/api/admin/broadcast", adm, AD, H(async (req, res) => {
 }));
 
 /* ---------- статика, PWA и ошибки ---------- */
-const MANIFEST = { name: "KaratUp — демо", short_name: "KaratUp", description: "Демо с виртуальными звёздами и подарками", lang: "ru",
+const MANIFEST = { name: "KaratUp", short_name: "KaratUp", description: "Апгрейды подарков за звёзды Telegram", lang: "ru",
   start_url: "/", scope: "/", display: "standalone", orientation: "portrait", background_color: "#0b0b0e", theme_color: "#0b0b0e",
   icons: [{ src: "/icon.png", sizes: "512x512", type: "image/png", purpose: "any" }, { src: "/icon.png", sizes: "512x512", type: "image/png", purpose: "maskable" }] };
 const SW = `const V="ku-v1";
