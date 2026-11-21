@@ -140,38 +140,7 @@ input[type=number]:focus{border-color:var(--a)}
 .close{float:right;background:none;border:0;color:var(--muted);font-size:28px;cursor:pointer;line-height:1}
 .foot{text-align:center;color:var(--muted);font-size:11px;margin-top:18px}
 #fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:50}
-/* --- мины --- */
-.mhead{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:6px}
-.mbox{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);border-radius:14px;padding:10px 6px;text-align:center}
-.mbox span{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
-.mbox b{font-size:18px;color:var(--a)}
-.mgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:12px 0;perspective:900px}
-.mgrid.shake{animation:shake .5s}
-.mc{aspect-ratio:1;position:relative;cursor:pointer;transform-style:preserve-3d;transition:transform .55s cubic-bezier(.3,1.5,.5,1)}
-.mc .f,.mc .b{position:absolute;inset:0;border-radius:14px;display:flex;align-items:center;justify-content:center;backface-visibility:hidden;-webkit-backface-visibility:hidden;font-size:clamp(22px,8vw,36px)}
-.mc .f{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);box-shadow:inset 0 -4px 0 rgba(0,0,0,.25);transition:border-color .2s}
-.mc .f::after{content:"";width:26%;aspect-ratio:1;border-radius:50%;background:color-mix(in srgb,var(--a) 22%,transparent)}
-.mc:not(.open):not(.ghost):hover .f{border-color:var(--a)}
-.mc:active{transform:scale(.94)}
-.mc .b{transform:rotateY(180deg);background:radial-gradient(circle,color-mix(in srgb,var(--win) 35%,var(--panel)),var(--panel));border:1px solid var(--win);box-shadow:0 0 18px color-mix(in srgb,var(--win) 40%,transparent)}
-.mc.bomb .b{background:radial-gradient(circle,color-mix(in srgb,var(--lose) 50%,var(--panel)),var(--panel));border-color:var(--lose);box-shadow:0 0 18px color-mix(in srgb,var(--lose) 55%,transparent)}
-.mc.open,.mc.ghost{transform:rotateY(180deg)}
-.mc.ghost{opacity:.4}
-.mc.boom .b{animation:bpulse .6s}
-@keyframes bpulse{0%{transform:rotateY(180deg) scale(1)}40%{transform:rotateY(180deg) scale(1.35)}100%{transform:rotateY(180deg) scale(1)}}
-/* --- краш --- */
-.cwrap{position:relative;border-radius:18px;overflow:hidden;border:1px solid var(--line);background:#05060f;margin-top:8px}
-.cwrap canvas{display:block;width:100%;height:320px}
-.cwrap.shake{animation:shake .5s}
-.cm{position:absolute;left:0;right:0;top:30px;text-align:center;font-size:46px;font-weight:900;color:#fff;text-shadow:0 0 24px rgba(0,0,0,.85);pointer-events:none;font-variant-numeric:tabular-nums}
-.cm.up{color:var(--win)}.cm.dead{color:var(--lose)}
-.cs{position:absolute;left:0;right:0;top:90px;text-align:center;font-size:13px;color:#b8c0d8;pointer-events:none}
-.cbar{position:absolute;left:0;bottom:0;height:4px;background:linear-gradient(90deg,var(--a),var(--a2));width:0}
-.cbet{position:absolute;left:10px;bottom:12px;font-size:12px;font-weight:700;color:#fff;background:rgba(0,0,0,.5);padding:5px 10px;border-radius:9px}
-.chist{display:flex;gap:6px;overflow-x:auto;padding:4px 0}
-.chist span{flex:0 0 auto;font-size:12px;font-weight:800;padding:5px 9px;border-radius:9px;background:var(--panel2);border:1px solid var(--line)}
-.chist .lo{color:var(--lose)}.chist .md{color:var(--win)}.chist .hi{color:var(--a)}
-.nav .in{grid-template-columns:repeat(5,1fr)!important}
+.nav .in{grid-template-columns:repeat(3,1fr)!important}
 .nav button{font-size:11px}
 
 /* --- иконки подарков --- */
@@ -297,55 +266,6 @@ input[type=number]{font-size:20px}
     </div>
   </section>
 
-  <!-- ===== МИНЫ ===== -->
-  <section id="sc-mines" hidden>
-    <h2>💣 Мины</h2>
-    <p style="color:var(--muted);font-size:13px;margin:0 0 10px">Открывайте звёзды и обходите мины. Забрать выигрыш можно в любой момент. Шанс дойти до x2 — ровно 47%.</p>
-    <div class="mhead">
-      <div class="mbox"><span>Множитель</span><b id="mMult">x1.00</b></div>
-      <div class="mbox"><span>Следующий</span><b id="mNext">—</b></div>
-      <div class="mbox"><span>Шанс клетки</span><b id="mSafe">—</b></div>
-    </div>
-    <div class="mgrid" id="mGrid"></div>
-    <div class="card">
-      <div class="lbl">Ставка (⭐) · минимум 10</div>
-      <input type="number" id="mStake" value="100" min="10" inputmode="numeric">
-      <div class="row" style="margin-top:8px">
-        <button class="chip" data-ms="min">МИН</button><button class="chip" data-ms="half">½</button><button class="chip" data-ms="dbl">×2</button><button class="chip" data-ms="max">МАКС</button>
-      </div>
-      <div class="lbl" style="margin-top:14px">Количество мин</div>
-      <div class="row" id="mCnt">
-        <button class="chip" data-n="1">1</button><button class="chip" data-n="3">3</button><button class="chip" data-n="5">5</button><button class="chip" data-n="10">10</button><button class="chip" data-n="15">15</button><button class="chip" data-n="24">24</button>
-      </div>
-      <div class="info"><span>Выигрыш: <b id="mWin">—</b></span><span>Мин: <b id="mNn">3</b></span></div>
-      <button class="go" id="mGo">Начать игру</button>
-    </div>
-  </section>
-
-  <!-- ===== КРАШ ===== -->
-  <section id="sc-crash" hidden>
-    <h2>🚀 Краш</h2>
-    <div class="chist" id="cHist"></div>
-    <div class="cwrap" id="cWrap">
-      <canvas id="cv2"></canvas>
-      <div class="cm" id="cMult">1.00x</div>
-      <div class="cs" id="cStat">Ожидание…</div>
-      <div class="cbet" id="cBet" hidden></div>
-      <div class="cbar" id="cBar"></div>
-    </div>
-    <div class="card">
-      <div class="lbl">Ставка (⭐) · минимум 10</div>
-      <input type="number" id="cStake" value="100" min="10" inputmode="numeric">
-      <div class="row" style="margin-top:8px">
-        <button class="chip" data-cs="min">МИН</button><button class="chip" data-cs="half">½</button><button class="chip" data-cs="dbl">×2</button><button class="chip" data-cs="max">МАКС</button>
-      </div>
-      <div class="lbl" style="margin-top:14px">Авто-вывод на множителе (0 — выключено)</div>
-      <input type="number" id="cAuto" value="0" min="0" step="0.1" inputmode="decimal">
-      <div class="info"><span>Шанс долететь до x2: <b>47%</b></span><span>Раунд: <b id="cRound">—</b></span></div>
-      <button class="go" id="cGo">Сделать ставку</button>
-    </div>
-  </section>
-
   <!-- ===== КАТАЛОГ ===== -->
   <section id="sc-cat" hidden>
     <h2>🛍 Каталог подарков</h2>
@@ -368,8 +288,6 @@ input[type=number]{font-size:20px}
 
 <nav class="nav"><div class="in">
   <button data-tab="up" class="on"><span>⬆️</span>Апгрейд</button>
-  <button data-tab="mines"><span>💣</span>Мины</button>
-  <button data-tab="crash"><span>🚀</span>Краш</button>
   <button data-tab="cat"><span>🛍️</span>Каталог</button>
   <button data-tab="inv"><span>🎒</span><i style="font-style:normal" id="invLbl">Склад</i></button>
 </div></nav>
@@ -735,7 +653,7 @@ function render(keepCenter){
   save();
 }
 function setTab(t){
-  tab=t;["up","mines","crash","cat","inv"].forEach(k=>$("sc-"+k).hidden=k!==t);if(t==="crash")setTimeout(crashResize,0);
+  tab=t;["up","cat","inv"].forEach(k=>$("sc-"+k).hidden=k!==t);
   document.querySelectorAll("[data-tab]").forEach(b=>b.classList.toggle("on",b.dataset.tab===t));
   scrollTo({top:0});
 }
@@ -918,388 +836,18 @@ function elCenter(el){const r=el.getBoundingClientRect();return[r.left+r.width/2
 const themeCol=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
 /* ================= МИНЫ (логика на сервере) ================= */
-const MN=25,MS={on:false,mines:new Set(),open:new Set(),stake:0,busy:false};
-const mProb=(k,n)=>{let p=1;for(let i=0;i<k;i++)p*=(MN-n-i)/(MN-i);return p};
-const mMul=(k,n)=>k===0?1:(EDGE/100)/mProb(k,n);
-function mBuild(){let h="";for(let i=0;i<MN;i++)h+=`<div class="mc" data-i="${i}"><div class="f"></div><div class="b"></div></div>`;$("mGrid").innerHTML=h}
-function mReset(){[...$("mGrid").children].forEach(c=>{c.className="mc";c.querySelector(".b").textContent=""})}
-function mUI(){
-  const k=MS.open.size,n=S.mN,left=MN-n-k,m=mMul(k,n);
-  $("mMult").textContent=mx(m);
-  $("mNext").textContent=left>0?mx(mMul(k+1,n)):"—";
-  $("mSafe").textContent=left>0?pctTxt(left/(MN-k)*100):"—";
-  $("mNn").textContent=n;
-  $("mWin").textContent=MS.on&&k>0?fmt(MS.stake*m)+" ⭐":"—";
-  const b=$("mGo");
-  if(!MS.on){b.textContent="Начать игру";b.disabled=false}
-  else if(k===0){b.textContent="Откройте клетку";b.disabled=true}
-  else{b.textContent=`Забрать ${fmt(MS.stake*m)} ⭐`;b.disabled=false}
-  $("mCnt").querySelectorAll(".chip").forEach(c=>{c.classList.toggle("on",+c.dataset.n===n);c.disabled=MS.on});
-  $("mStake").disabled=MS.on;
-  if(document.activeElement!==$("mStake"))$("mStake").value=S.mStake;
-}
-function mRestore(g){
-  S.mN=g.n;MS.on=true;MS.stake=g.stake;MS.open=new Set(g.opened);MS.mines=new Set();
-  mReset();g.opened.forEach(i=>{const c=$("mGrid").children[i];c.classList.add("open");c.querySelector(".b").textContent="⭐"});mUI();
-}
-async function mStart(){
-  if(isBanned()||MS.busy)return;
-  const st=Math.floor(S.mStake)||0;
-  if(st<10)return toast("Минимальная ставка — 10 ⭐");
-  if(st>S.bal)return toast("Недостаточно звёзд — пополните баланс");
-  MS.busy=true;
-  try{
-    const r=await act("mines/start",{stake:st,n:S.mN});
-    S.bal=r.bal;money();
-    MS.on=true;MS.stake=st;MS.open=new Set();MS.mines=new Set();
-    mReset();AU.coin();mUI();
-  }catch(e){toast(e.message)}finally{MS.busy=false}
-}
-function mRevealRest(hit){
-  [...$("mGrid").children].forEach((c,j)=>{
-    if(MS.open.has(j)&&!MS.mines.has(j))return;
-    const b=c.querySelector(".b");
-    if(MS.mines.has(j)){b.textContent="💣";c.classList.add("bomb",j===hit?"open":"ghost");if(j===hit)c.classList.add("boom")}
-    else{b.textContent="⭐";c.classList.add("ghost")}
-  });
-}
-function mWinFx(r){
-  S.bal=r.bal;money();MS.on=false;MS.mines=new Set(r.mines);mRevealRest(-1);AU.coin();setTimeout(()=>AU.win(r.mult>=5),150);
-  const [x,y]=elCenter($("mGrid"));fxAt(x,y,110,[themeCol("--a"),themeCol("--a2"),"#fff","#3ddc84"],12,.9,true);
-  toast(`Забрали ${mx(r.mult)}: +${fmt(r.win-MS.stake)} ⭐`);
-}
-async function mPick(i){
-  if(!MS.on||MS.open.has(i)||MS.busy)return;
-  MS.busy=true;
-  try{
-    const r=await act("mines/pick",{i});
-    const cell=$("mGrid").children[i],[x,y]=elCenter(cell);
-    if(r.hit){
-      MS.on=false;MS.mines=new Set(r.mines);mRevealRest(i);AU.boom();
-      $("mGrid").classList.remove("shake");void $("mGrid").offsetWidth;$("mGrid").classList.add("shake");
-      fxAt(x,y,60,["#ff5a1f","#ffb400","#fff","#ff2d2d"],11,.7);
-      toast(`💥 Мина! −${fmt(MS.stake)} ⭐`);
-    }else{
-      MS.open.add(i);cell.classList.add("open");cell.querySelector(".b").textContent="⭐";
-      AU.gem(MS.open.size);fxAt(x,y,16,[themeCol("--a"),"#fff"],6,.5,true);
-      if(r.done)mWinFx(r);
-    }
-  }catch(e){toast(e.message);if(e.status===400)syncMe(true)}
-  finally{MS.busy=false;mUI()}
-}
-async function mCash(){
-  if(!MS.on||MS.busy)return;
-  MS.busy=true;
-  try{const r=await act("mines/cash",{});mWinFx(r)}
-  catch(e){toast(e.message)}
-  finally{MS.busy=false;mUI()}
-}
-mBuild();
-$("mGrid").onclick=e=>{const c=e.target.closest(".mc");if(c){AU.init();mPick(+c.dataset.i)}};
-$("mGo").onclick=()=>{AU.init();if(!MS.on)mStart();else mCash()};
-$("mStake").oninput=()=>{S.mStake=Math.max(0,Math.floor(parseFloat($("mStake").value)||0));save()};
-document.querySelectorAll("[data-ms]").forEach(b=>b.onclick=()=>{
-  if(MS.on)return;AU.init();AU.click();const t=b.dataset.ms;let v=S.mStake;
-  v=t==="min"?10:t==="half"?Math.max(10,Math.floor(v/2)):t==="dbl"?v*2:Math.floor(S.bal);
-  S.mStake=Math.max(10,v);save();mUI();
-});
-$("mCnt").onclick=e=>{const b=e.target.closest("[data-n]");if(!b||MS.on)return;AU.init();AU.click();S.mN=+b.dataset.n;save();mReset();mUI()};
-mUI();
-
-/* ================= КРАШ ================= */
-const cvs=$("cv2"),cc=cvs.getContext("2d"),GR=.12,CH=320,WAITMS=6000,PAUSEMS=3400;
-let cW=340,cdpr=1;
-function crashResize(){const w=$("cWrap").clientWidth;if(!w)return;cdpr=Math.min(devicePixelRatio||1,2);cvs.width=Math.round(w*cdpr);cvs.height=Math.round(CH*cdpr);cW=w}
-addEventListener("resize",crashResize);
-const stars=Array.from({length:90},()=>({x:Math.random(),y:Math.random(),z:.3+Math.random()*.9,tw:Math.random()*6}));
-const newCP=()=>{const r=1-Math.random();return Math.min(1000,Math.max(1,Math.floor(94/r)/100))};
-const CR={phase:"wait",tWait:performance.now(),t0:0,tCrash:0,cp:1,mult:1,bet:null,last:0,P:[],D:[],rx:40,ry:CH-40,ang:-Math.PI/2,hist:[],cdI:99,round:0,off:0,busy:false};
-function cHist(){$("cHist").innerHTML=CR.hist.length?CR.hist.map(v=>`<span class="${v<2?"lo":v<10?"md":"hi"}">${v.toFixed(2)}x</span>`).join(""):'<span style="color:var(--muted)">пока нет раундов</span>'}
-function cNew(now){CR.phase="wait";CR.tWait=now;CR.mult=1;CR.cp=newCP();CR.bet=null;CR.P=[];CR.D=[];CR.cdI=99;CR.round++;$("cMult").className="cm"}
-function cStart(now){
-  CR.phase="fly";CR.t0=now;
-  if(tab==="crash"){AU.launch();AU.engStart()}
-  for(let i=0;i<26;i++)CR.P.push({t:"s",x:CR.rx+(Math.random()-.5)*26,y:CR.ry+30,vx:(Math.random()-.5)*5,vy:Math.random()*1.5,r:6+Math.random()*7,gr:.35,max:1+Math.random()*.8,life:1});
-}
-function cCashFx(r){
-  const b=r.bet;
-  if(tab==="crash")AU.coin();
-  toast(`Забрали ${mx(b.out)}: +${fmt(r.win-b.amt)} ⭐`);
-  if(tab==="crash"){const w=$("cWrap").getBoundingClientRect();fxAt(w.left+CR.rx,w.top+CR.ry,40,[themeCol("--a"),"#fff","#3ddc84"],8,.7,true)}
-}
-function cCrash(now){
-  CR.phase="crash";CR.tCrash=now;CR.mult=CR.cp;
-  CR.hist.unshift(CR.cp);CR.hist=CR.hist.slice(0,14);cHist();
-  const x=CR.rx,y=CR.ry;
-  for(let i=0;i<90;i++){const a=Math.random()*6.283,s=2+Math.random()*9;CR.P.push({t:"f",x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,r:1.5+Math.random()*2.5,max:.6+Math.random()*.8,life:1,g:.12})}
-  for(let i=0;i<34;i++){const a=Math.random()*6.283,s=Math.random()*4;CR.P.push({t:"s",x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,r:8+Math.random()*12,gr:.6,max:1.2+Math.random()*1.2,life:1})}
-  const cols=["#e8ecf7","#9aa5c0","#e0334a","#5a6380","#ff8a2e"];
-  for(let i=0;i<16;i++){const a=Math.random()*6.283,s=2+Math.random()*7;CR.D.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,rot:Math.random()*6,vr:(Math.random()-.5)*.5,w:4+Math.random()*10,h:2+Math.random()*6,c:cols[i%cols.length],life:1})}
-  const b=CR.bet;
-  if(b&&!b.cashed){toast(`💥 Улетела на ${mx(CR.cp)}: −${fmt(b.amt)} ⭐`)}
-  if(tab==="crash"){AU.engStop();AU.boom()}
-  const w=$("cWrap");w.classList.remove("shake");void w.offsetWidth;w.classList.add("shake");
-  $("cMult").className="cm dead";
-}
-function drawRocket(x,y,ang,s,fl){
-  cc.save();cc.translate(x,y);cc.rotate(ang);cc.scale(s,s);
-  if(fl>0){
-    const fk=fl*(.85+Math.random()*.3);
-    const gl=cc.createRadialGradient(-32,0,2,-32,0,64*fk);gl.addColorStop(0,"rgba(255,190,80,.6)");gl.addColorStop(1,"rgba(255,120,0,0)");
-    cc.fillStyle=gl;cc.beginPath();cc.arc(-32,0,64*fk,0,6.283);cc.fill();
-    for(const [w,l,col] of [[10,60,"#ff4d1a"],[7.5,48,"#ff9d2e"],[5,36,"#ffe27a"],[2.6,24,"#ffffff"]]){
-      cc.fillStyle=col;cc.beginPath();cc.moveTo(-24,-w);cc.quadraticCurveTo(-24-l*.6*fk,-w*.7,-24-l*fk,0);cc.quadraticCurveTo(-24-l*.6*fk,w*.7,-24,w);cc.closePath();cc.fill();
-    }
-  }
-  // стабилизаторы
-  const fg=cc.createLinearGradient(0,-22,0,22);fg.addColorStop(0,"#ff5a6a");fg.addColorStop(.5,"#c81d3a");fg.addColorStop(1,"#ff5a6a");
-  for(const sg of [-1,1]){
-    cc.fillStyle=fg;cc.strokeStyle="rgba(20,10,20,.6)";cc.lineWidth=1;
-    cc.beginPath();cc.moveTo(-4,sg*8);cc.lineTo(-27,sg*22);cc.lineTo(-29,sg*9);cc.lineTo(-20,sg*7);cc.closePath();cc.fill();cc.stroke();
-  }
-  // сопло
-  cc.fillStyle="#2f3441";cc.beginPath();cc.moveTo(-22,-5.5);cc.lineTo(-29,-8);cc.lineTo(-29,8);cc.lineTo(-22,5.5);cc.closePath();cc.fill();
-  cc.fillStyle="#555d73";cc.fillRect(-29,-8,2,16);
-  // корпус
-  const bg=cc.createLinearGradient(0,-11,0,11);bg.addColorStop(0,"#ffffff");bg.addColorStop(.45,"#dfe5f2");bg.addColorStop(1,"#7f8aa8");
-  cc.fillStyle=bg;cc.beginPath();cc.moveTo(33,0);cc.bezierCurveTo(23,-10.5,2,-11.5,-22,-8.5);cc.lineTo(-22,8.5);cc.bezierCurveTo(2,11.5,23,10.5,33,0);cc.closePath();cc.fill();
-  cc.strokeStyle="rgba(20,25,40,.7)";cc.lineWidth=1;cc.stroke();
-  cc.save();cc.clip();
-  const ng=cc.createLinearGradient(0,-11,0,11);ng.addColorStop(0,"#ff7a85");ng.addColorStop(.5,"#d41f3d");ng.addColorStop(1,"#8f1229");
-  cc.fillStyle=ng;cc.fillRect(16,-12,20,24);
-  cc.fillStyle=themeCol("--a");cc.fillRect(-10,-12,4,24);cc.fillStyle="rgba(0,0,0,.18)";cc.fillRect(-5,-12,1.5,24);
-  cc.fillStyle="rgba(255,255,255,.55)";cc.fillRect(-22,-7,60,2.2);
-  cc.restore();
-  // иллюминатор
-  const wg=cc.createRadialGradient(5,-1,.5,6,0,5.5);wg.addColorStop(0,"#d9f6ff");wg.addColorStop(.6,"#37a2e6");wg.addColorStop(1,"#0f4c85");
-  cc.fillStyle=wg;cc.strokeStyle="#4f5a75";cc.lineWidth=2;cc.beginPath();cc.arc(6,0,5,0,6.283);cc.fill();cc.stroke();
-  cc.fillStyle="rgba(255,255,255,.8)";cc.beginPath();cc.arc(4.5,-1.6,1.3,0,6.283);cc.fill();
-  // швы
-  cc.strokeStyle="rgba(40,50,80,.45)";cc.lineWidth=.8;cc.beginPath();cc.moveTo(-16,-8.5);cc.lineTo(-16,8.5);cc.moveTo(15,-9);cc.lineTo(15,9);cc.stroke();
-  cc.restore();
-}
-function cDraw(now,dt){
-  const W=cW,H=CH,pad=36,f=dt*60;
-  cc.setTransform(cdpr,0,0,cdpr,0,0);
-  const A=themeCol("--a"),A2=themeCol("--a2");
-  const ph=CR.phase;
-  const el=ph==="fly"?(now-CR.t0)/1000:ph==="crash"?Math.log(CR.cp)/GR:0;
-  const m=ph==="fly"?Math.exp(GR*el):ph==="crash"?CR.cp:1;
-  // небо
-  const bg=cc.createLinearGradient(0,0,0,H);bg.addColorStop(0,"#04050d");bg.addColorStop(1,"#0f1b38");cc.fillStyle=bg;cc.fillRect(0,0,W,H);
-  // планета
-  const drift=Math.min(1,Math.log(m)/Math.log(40)),py=H+330+drift*220,pr=400;
-  const pg=cc.createRadialGradient(W*.5,py-pr*.3,pr*.4,W*.5,py,pr);pg.addColorStop(0,"#2a6bb5");pg.addColorStop(.8,"#0f2c55");pg.addColorStop(1,"#091a36");
-  cc.fillStyle=pg;cc.beginPath();cc.arc(W*.5,py,pr,0,6.283);cc.fill();
-  cc.save();cc.shadowColor="rgba(120,200,255,.8)";cc.shadowBlur=24;cc.strokeStyle="rgba(130,200,255,.55)";cc.lineWidth=4;cc.beginPath();cc.arc(W*.5,py,pr,0,6.283);cc.stroke();cc.restore();
-  // звёзды
-  for(const s of stars){
-    s.y+=dt*(.012+(ph==="fly"?.05*Math.min(m,25)/25:0))*s.z;
-    if(s.y>1){s.y-=1;s.x=Math.random()}
-    cc.globalAlpha=(.35+.65*Math.abs(Math.sin(now/500+s.tw)))*s.z;cc.fillStyle="#fff";cc.beginPath();cc.arc(s.x*W,s.y*H,s.z*1.3,0,6.283);cc.fill();
-  }
-  cc.globalAlpha=1;
-  // шкалы
-  const ymax=Math.max(2,m*1.18),tmax=Math.max(8,el*1.12);
-  const X=t=>pad+t/tmax*(W-pad*2.2),Y=v=>H-pad-(v-1)/(ymax-1)*(H-pad*2);
-  let step=.5;for(const s of [.5,1,2,5,10,20,50,100,200,500,1000]){step=s;if((ymax-1)/s<=5)break}
-  cc.font="600 10px system-ui";cc.textAlign="left";
-  for(let v=1+step;v<ymax;v+=step){const yy=Y(v);cc.strokeStyle="rgba(255,255,255,.07)";cc.lineWidth=1;cc.beginPath();cc.moveTo(0,yy);cc.lineTo(W,yy);cc.stroke();cc.fillStyle="rgba(255,255,255,.35)";cc.fillText(parseFloat(v.toFixed(2))+"x",6,yy-3)}
-  // кривая
-  if(el>0){
-    cc.beginPath();const n=70;
-    for(let i=0;i<=n;i++){const t=el*i/n;const px=X(t),py2=Y(Math.exp(GR*t));i?cc.lineTo(px,py2):cc.moveTo(px,py2)}
-    const lg=cc.createLinearGradient(X(0),0,X(el)+1,0);lg.addColorStop(0,A2);lg.addColorStop(1,A);
-    cc.save();cc.shadowColor=A;cc.shadowBlur=14;cc.strokeStyle=lg;cc.lineWidth=4;cc.lineCap="round";cc.lineJoin="round";cc.stroke();cc.restore();
-    cc.lineTo(X(el),H-pad);cc.lineTo(X(0),H-pad);cc.closePath();
-    const fg=cc.createLinearGradient(0,Y(m),0,H);fg.addColorStop(0,"rgba(255,200,60,.22)");fg.addColorStop(1,"rgba(255,200,60,0)");cc.fillStyle=fg;cc.fill();
-  }
-  // позиция ракеты
-  const sc=Math.max(.9,Math.min(1.3,W/320));
-  const rx=X(el),ry=Y(m);
-  let ang=-Math.PI/2;
-  if(ph==="fly"){
-    const dyp=-(GR*m)/(ymax-1)*(H-pad*2),dxp=(W-pad*2.2)/tmax,tan=Math.atan2(dyp,dxp),k=Math.min(1,el/1.6),e=k*k*(3-2*k);
-    ang=-Math.PI/2*(1-e)+tan*e;
-  }
-  if(ph!=="crash"){CR.rx=rx;CR.ry=ry;CR.ang=ang}
-  // стартовая площадка
-  if(ph==="wait"||el<1.5){
-    cc.fillStyle="#1d2438";cc.fillRect(pad-34,H-pad+30,68,10);cc.fillStyle="#2b3450";cc.fillRect(pad-4,H-pad+8,8,24);
-    cc.fillStyle="#3a4466";cc.fillRect(pad+22,H-pad-36,5,70);cc.fillRect(pad+22,H-pad-36,16,4);
-  }
-  // выхлоп
-  if(ph==="fly"||(ph==="wait"&&Math.random()<.2)){
-    const tx=CR.rx-Math.cos(ang)*34*sc,ty=CR.ry-Math.sin(ang)*34*sc,cnt=ph==="fly"?2:1;
-    for(let i=0;i<cnt;i++)CR.P.push({t:"s",x:tx,y:ty,vx:-Math.cos(ang)*(1.2+Math.random())+(Math.random()-.5)*1.2,vy:-Math.sin(ang)*(1.2+Math.random())+(Math.random()-.5)*1.2,r:4+Math.random()*4,gr:.3,max:.9+Math.random()*.6,life:1});
-    if(ph==="fly")for(let i=0;i<3;i++)CR.P.push({t:"f",x:tx,y:ty,vx:-Math.cos(ang)*(3+Math.random()*3)+(Math.random()-.5)*2,vy:-Math.sin(ang)*(3+Math.random()*3)+(Math.random()-.5)*2,r:1+Math.random()*1.6,max:.4+Math.random()*.4,life:1,g:0});
-  }
-  // частицы
-  CR.P=CR.P.filter(p=>p.life>0);
-  for(const p of CR.P){
-    p.x+=p.vx*f;p.y+=p.vy*f;p.vx*=.985;p.vy=p.vy*.985+(p.g||0)*f;p.life-=dt/p.max;if(p.gr)p.r+=p.gr*f*.5;
-    if(p.t==="s"){cc.globalAlpha=Math.max(0,p.life)*.4;cc.fillStyle="#c9cfe0";cc.beginPath();cc.arc(p.x,p.y,p.r,0,6.283);cc.fill()}
-    else{cc.globalCompositeOperation="lighter";cc.globalAlpha=Math.max(0,p.life);cc.fillStyle=p.life>.5?"#ffd36a":"#ff6a1a";cc.beginPath();cc.arc(p.x,p.y,p.r,0,6.283);cc.fill();cc.globalCompositeOperation="source-over"}
-  }
-  cc.globalAlpha=1;
-  // ракета
-  if(ph!=="crash")drawRocket(rx,ry,ang,sc,ph==="fly"?1+Math.min(.5,m*.02):ph==="wait"?.18:0);
-  else{
-    const bt=(now-CR.tCrash)/1000;
-    CR.D=CR.D.filter(d=>d.life>0);
-    for(const d of CR.D){d.x+=d.vx*f;d.y+=d.vy*f;d.vy+=.18*f;d.rot+=d.vr*f;d.life-=dt/2;cc.save();cc.globalAlpha=Math.max(0,d.life);cc.translate(d.x,d.y);cc.rotate(d.rot);cc.fillStyle=d.c;cc.fillRect(-d.w/2,-d.h/2,d.w,d.h);cc.restore()}
-    cc.globalAlpha=1;
-    if(bt<.9){
-      cc.globalCompositeOperation="lighter";
-      const r=18+bt*130,fb=cc.createRadialGradient(CR.rx,CR.ry,2,CR.rx,CR.ry,r);
-      fb.addColorStop(0,`rgba(255,255,230,${1-bt})`);fb.addColorStop(.4,`rgba(255,170,40,${(1-bt)*.85})`);fb.addColorStop(1,"rgba(255,60,0,0)");
-      cc.fillStyle=fb;cc.beginPath();cc.arc(CR.rx,CR.ry,r,0,6.283);cc.fill();
-      cc.strokeStyle=`rgba(255,220,160,${(1-bt)*.8})`;cc.lineWidth=3;cc.beginPath();cc.arc(CR.rx,CR.ry,bt*230,0,6.283);cc.stroke();
-      cc.globalCompositeOperation="source-over";
-    }
-    if(bt<.18){cc.fillStyle=`rgba(255,255,255,${.5*(1-bt/.18)})`;cc.fillRect(0,0,W,H)}
-  }
-}
-function cUI(now){
-  const ph=CR.phase,m=CR.mult,b=CR.bet,btn=$("cGo");
-  $("cMult").textContent=(ph==="wait"?1:m).toFixed(2)+"x";
-  if(ph==="fly")$("cMult").className="cm"+(m>=2?" up":"");
-  $("cStat").textContent=ph==="wait"?`Старт через ${(Math.max(0,WAITMS-(now-CR.tWait))/1000).toFixed(1)} с`:ph==="fly"?"Ракета в полёте":`Улетела на ${CR.cp.toFixed(2)}x`;
-  $("cBar").style.width=ph==="wait"?((now-CR.tWait)/WAITMS*100)+"%":"0";
-  $("cRound").textContent="#"+CR.round;
-  const bi=$("cBet");
-  if(b){bi.hidden=false;bi.textContent=b.cashed?`Забрано ${mx(b.out)} · +${fmt(b.amt*b.out-b.amt)} ⭐`:ph==="fly"?`Ставка ${fmt(b.amt)} ⭐ → ${fmt(b.amt*m)} ⭐`:`Ставка ${fmt(b.amt)} ⭐`}else bi.hidden=true;
-  let txt,dis=false;
-  if(ph==="wait")txt=b?`Отменить ставку (${fmt(b.amt)} ⭐)`:`Сделать ставку · ${fmt(Math.floor(S.cStake)||0)} ⭐`;
-  else if(ph==="fly")txt=b?(b.cashed?`Забрано +${fmt(b.amt*b.out-b.amt)} ⭐`:`Забрать ${fmt(b.amt*m)} ⭐`):"Ждите следующий раунд";
-  else txt="Раунд окончен";
-  if(ph==="crash"||(ph==="fly"&&(!b||b.cashed)))dis=true;
-  btn.textContent=txt;btn.disabled=dis;
-}
-const sNow=()=>Date.now()+CR.off;
-function cApply(s){
-  const now=performance.now(),prevBet=CR.bet;
-  CR.off=s.now-Date.now();
-  if(s.round!==CR.round){
-    CR.round=s.round;CR.phase="wait";CR.mult=1;CR.cp=1;CR.P=[];CR.D=[];CR.cdI=99;CR.bet=null;$("cMult").className="cm";
-  }
-  if(!CR.busy)CR.bet=s.bet||null;
-  if(s.phase==="wait"){
-    CR.tWait=now-(sNow()-s.waitStart);
-  }else if(s.phase==="fly"){
-    if(CR.phase!=="fly"){cStart(now);CR.t0=now-(sNow()-s.t0)}
-  }else if(s.phase==="crash"){
-    if(CR.phase!=="crash"){CR.cp=s.cp;CR.t0=now;cCrash(now)}
-  }
-  if(s.hist&&JSON.stringify(s.hist)!==JSON.stringify(CR.hist)){CR.hist=s.hist.slice();cHist()}
-  if(!CR.busy&&prevBet&&!prevBet.cashed&&CR.bet&&CR.bet.cashed&&CR.bet.out>0){
-    toast(`Авто-вывод ${mx(CR.bet.out)}: +${fmt(CR.bet.amt*CR.bet.out-CR.bet.amt)} ⭐`);
-    if(tab==="crash")AU.coin();syncMe(true);
-  }
-}
-async function cPoll(){
-  let d=700;
-  try{
-    if(API.token&&!document.hidden){cApply(await http("crash"));d=CR.phase==="fly"?250:600}
-  }catch(e){d=1500}
-  setTimeout(cPoll,d);
-}
-function cFrame(now){
-  const dt=Math.min(.05,(now-(CR.last||now))/1000);CR.last=now;
-  const vis=tab==="crash";
-  if(CR.phase==="wait"){
-    const left=WAITMS-(now-CR.tWait),sec=Math.ceil(left/1000);
-    if(vis&&sec!==CR.cdI&&sec<=3&&sec>0)AU.beep(660+(3-sec)*110);
-    CR.cdI=sec;
-  }else if(CR.phase==="fly"){
-    CR.mult=Math.min(1000,Math.exp(GR*(now-CR.t0)/1000));
-    if(vis){if(!AU.eng)AU.engStart();AU.engSet(CR.mult)}else if(AU.eng)AU.engStop();
-  }
-  if(vis&&cW>0){cDraw(now,dt);cUI(now)}
-  requestAnimationFrame(cFrame);
-}
-$("cGo").onclick=async()=>{
-  if(isBanned()||CR.busy)return;
-  AU.init();AU.click();
-  CR.busy=true;
-  try{
-    if(CR.phase==="wait"){
-      if(!CR.bet){
-        const a=Math.floor(S.cStake)||0;
-        if(a<10)return toast("Минимальная ставка — 10 ⭐");
-        if(a>S.bal)return toast("Недостаточно звёзд — пополните баланс");
-        const au=parseFloat(S.cAuto)||0;
-        const r=await act("crash/bet",{amt:a,auto:au>=1.1?au:0});
-        S.bal=r.bal;money();CR.bet=r.bet;
-      }else{
-        const r=await act("crash/cancel",{});S.bal=r.bal;money();CR.bet=null;
-      }
-    }else if(CR.phase==="fly"&&CR.bet&&!CR.bet.cashed){
-      const r=await act("crash/cashout",{});
-      if(r.ok){S.bal=r.bal;money();CR.bet=r.bet;cCashFx(r)}
-      else{CR.bet=r.bet;toast("Не успели — ракета улетела")}
-    }
-  }catch(e){toast(e.message);syncMe(true)}
-  finally{CR.busy=false}
-};
-$("cStake").oninput=()=>{S.cStake=Math.max(0,Math.floor(parseFloat($("cStake").value)||0));save()};
-$("cAuto").oninput=()=>{S.cAuto=Math.max(0,parseFloat($("cAuto").value)||0);save()};
-$("cStake").value=S.cStake;$("cAuto").value=S.cAuto;
-document.querySelectorAll("[data-cs]").forEach(b=>b.onclick=()=>{
-  AU.init();AU.click();const t=b.dataset.cs;let v=S.cStake;
-  v=t==="min"?10:t==="half"?Math.max(10,Math.floor(v/2)):t==="dbl"?v*2:Math.floor(S.bal);
-  S.cStake=Math.max(10,v);$("cStake").value=S.cStake;save();
-});
-cHist();crashResize();requestAnimationFrame(cFrame);
-
-/* ================= АККАУНТ · БАН · РАССЫЛКА · АДМИН-ПАНЕЛЬ ================= */
-function checkBan(){
-  const b=isBanned(),was=$("ban").classList.contains("open");
-  $("ban").classList.toggle("open",b);
-  if(b){$("banName").textContent="@"+S.user;if(!was)closeM()}
-}
-/* --- рассылка (получатель) --- */
-let bcShowing=null;
-function checkBc(){
-  if(bcShowing||isBanned()||!ME||!ME.bc)return;
-  const b=ME.bc;bcShowing=b;$("bcTxt").textContent=b.text;
-  $("bcTime").textContent=new Date(b.ts).toLocaleString("ru-RU",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
-  $("bcM").classList.add("open");AU.coin();
-}
-$("bcOk").onclick=async()=>{
-  const b=bcShowing;bcShowing=null;$("bcM").classList.remove("open");AU.init();AU.click();
-  if(b){try{await call("bc/seen",{id:b.id})}catch(e){} if(ME&&ME.bc&&ME.bc.id===b.id)ME.bc=null}
-  setTimeout(()=>syncMe(),300);
-};
-/* --- синхронизация с сервером --- */
-async function syncMe(force){
-  if(inflight||spinning||MS.busy||CR.busy)return;
-  try{
-    const m=await call("me");
-    if(inflight||spinning||MS.busy||CR.busy)return;
-    const sig=JSON.stringify([m.bal,(m.inv||[]).map(i=>i.uid),m.v,m.banned]);
-    const adminChanged=S.v!==undefined&&m.v!==S.v&&!force;
-    ME=m;
-    if(sig!==lastSig||force){
-      lastSig=sig;applyMe(m);animBal(S.bal);render(spinning);
-      if(adminChanged)toast("Ваш баланс изменён администратором");
-    }
-    checkBan();checkBc();
-    if(admOk&&$("adm").classList.contains("open"))admRender();
-  }catch(e){}
-}
 /* --- смена аккаунта --- */
 async function switchUser(raw){
   if(TG)return toast("В Telegram аккаунт привязан к вашему профилю");
   const n=nm(raw);
   if(n.length<3)return toast("Юзернейм: от 3 символов (a–z, 0–9, _)");
   if(n===S.user)return toast("Вы уже в этом аккаунте");
-  if(spinning||MS.on||(CR.bet&&!CR.bet.cashed))return toast("Дождитесь конца игры");
+  if(spinning)return;
   try{
     await login(n);
     const m=await call("me");applyMe(m);ME=m;lastSig="";
   }catch(e){return toast(e.message)}
-  sel=[];CR.bet=null;MS.on=false;MS.open=new Set();mReset();if(ME.mines)mRestore(ME.mines);else mUI();
+  sel=[];
   closeM();$("banSw").value="";animBal(S.bal);render();checkBan();checkBc();toast("Вы вошли как @"+S.user);
 }
 $("usrGo").onclick=()=>{AU.init();AU.click();switchUser($("usrIn").value)};
@@ -1375,9 +923,8 @@ async function boot(){
     }else{toast(e.message||"Не удалось подключиться к серверу");setTimeout(boot,4000);return}
   }
   applyMe(m);ME=m;lastSig="";
-  if(m.mines)mRestore(m.mines);
   animBal(S.bal);render();checkBan();setTimeout(checkBc,600);
-  cPoll();setInterval(syncMe,2500);
+  setInterval(syncMe,2500);
 }
 /* ---------- PWA: установка и service worker ---------- */
 (function(){

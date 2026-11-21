@@ -7,14 +7,11 @@ const path = require("path");
 const { Pool, types } = require("pg");
 
 /* ---------- правила игры и цены (источник правды — сервер) ---------- */
-const START = 1000, EDGE = 94, SELL = 0.9, MN = 25;   // EDGE=94 → RTP 94%
-const MULTS = [2, 3, 5, 10, 20, 50, 100], MINES_OK = [1, 3, 5, 10, 15, 24];
+const START = 1000, EDGE = 94, SELL = 0.9;
+const MULTS = [2, 3, 5, 10, 20, 50, 100];
 const nm = s => String(s || "").trim().replace(/^@+/, "").toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 32);
 const rand = () => crypto.randomInt(0, 1_000_000_000) / 1e9;
 const uid = () => crypto.randomBytes(6).toString("hex");
-const mProb = (k, n) => { let p = 1; for (let i = 0; i < k; i++) p *= (MN - n - i) / (MN - i); return p; };
-const mMul = (k, n) => k === 0 ? 1 : (EDGE / 100) / mProb(k, n);
-const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = crypto.randomInt(0, i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
 const PRICE = {
   swirl: 458, wine: 458, cocoa: 458, pot: 458, egg: 400, y2025: 439,
@@ -51,21 +48,6 @@ CREATE TABLE IF NOT EXISTS items (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS items_user_idx ON items(user_id, seq);
-
-CREATE TABLE IF NOT EXISTS mines_games (
-  user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-  stake   BIGINT NOT NULL,
-  n       INT NOT NULL,
-  mines   INT[] NOT NULL,
-  opened  INT[] NOT NULL DEFAULT '{}'
-);
-
-CREATE TABLE IF NOT EXISTS crash_bets (
-  user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-  round   BIGINT NOT NULL,
-  amt     BIGINT NOT NULL,
-  auto    NUMERIC NOT NULL DEFAULT 0
-);
 
 CREATE TABLE IF NOT EXISTS broadcasts (
   id   BIGSERIAL PRIMARY KEY,
@@ -112,10 +94,10 @@ async function invOf(c, id) {
   const { rows } = await c.query("SELECT uid, key FROM items WHERE user_id=$1 ORDER BY seq", [id]);
   return rows;
 }
-async function migrate() { await pool.query(SCHEMA); }
+async function migrate() { await pool.query(SCHEMA); await pool.query("DROP TABLE IF EXISTS mines_games, crash_bets"); }
 
 
-/* ---------- авторизация, Telegram, краш ---------- */
+/* ---------- авторизация и Telegram ---------- */
 const auth = (() => {
 
 const SECRET = process.env.SESSION_SECRET ||
@@ -216,122 +198,6 @@ async function handle(update) {
 return { init, handle, secret, TOKEN };
 })();
 
-const crash = (() => {
-// Общий раунд «Краш» на сервере. Точка вылета генерируется на сервере и клиенту
-// не отправляется до момента взрыва.
-
-const GR = 0.12, WAIT = 6000, PAUSE = 3400;
-const newCP = () => {
-  const r = 1 - crypto.randomInt(0, 1_000_000_000) / 1e9;
-  return Math.min(1000, Math.max(1, Math.floor(EDGE / r) / 100));
-};
-
-const C = { round: 1, phase: "wait", waitStart: Date.now(), t0: 0, crashAt: 0, cp: newCP(), hist: [], bets: new Map() };
-const pub = b => b ? { amt: b.amt, auto: b.auto, cashed: b.cashed, out: b.out } : null;
-
-async function payOut(uid, win) {
-  return tx(async c => {
-    const { rows } = await c.query("UPDATE users SET bal=bal+$2 WHERE id=$1 RETURNING bal", [uid, win]);
-    await c.query("DELETE FROM crash_bets WHERE user_id=$1", [uid]);
-    return rows[0].bal;
-  });
-}
-
-async function settleCrash(now) {
-  C.phase = "crash"; C.crashAt = now;
-  C.hist.unshift(C.cp); C.hist = C.hist.slice(0, 14);
-  const auto = [], lost = [];
-  for (const [uid, b] of C.bets) {
-    if (b.pending || b.cashed) continue;
-    if (b.auto >= 1.1 && C.cp >= b.auto) { b.cashed = true; b.out = b.auto; auto.push([uid, b]); }
-    else lost.push(uid);
-  }
-  await Promise.all(auto.map(([uid, b]) => payOut(uid, Math.floor(b.amt * b.out)).catch(e => console.error("auto payout", e.message))));
-  if (lost.length) await pool.query("DELETE FROM crash_bets WHERE user_id=ANY($1)", [lost]).catch(() => {});
-}
-
-let ticking = false;
-async function tick() {
-  if (ticking) return; ticking = true;
-  try {
-    const now = Date.now();
-    if (C.phase === "wait") {
-      if (now - C.waitStart >= WAIT) { C.phase = "fly"; C.t0 = now; }
-    } else if (C.phase === "fly") {
-      const el = (now - C.t0) / 1000, m = Math.exp(GR * el);
-      if (m >= C.cp || (C.cp <= 1 && el > 0.45)) await settleCrash(now);
-    } else if (now - C.crashAt >= PAUSE) {
-      C.round++; C.phase = "wait"; C.waitStart = now; C.cp = newCP(); C.bets = new Map();
-    }
-  } catch (e) { console.error("crash tick", e.message); }
-  ticking = false;
-}
-
-async function start() {
-  // после рестарта сервера возвращаем ставки незавершённых раундов
-  await tx(async c => {
-    await c.query("UPDATE users u SET bal=u.bal+cb.amt FROM crash_bets cb WHERE cb.user_id=u.id");
-    await c.query("DELETE FROM crash_bets");
-  });
-  setInterval(tick, 50).unref();
-}
-
-function state(uid) {
-  return {
-    now: Date.now(), round: C.round, phase: C.phase, waitStart: C.waitStart, t0: C.t0,
-    cp: C.phase === "crash" ? C.cp : undefined, hist: C.hist, bet: pub(C.bets.get(uid)),
-  };
-}
-
-async function bet(uid, amt, auto) {
-  if (C.phase !== "wait") throw new HttpError(400, "Ставки принимаются только до старта раунда");
-  if (C.bets.has(uid)) throw new HttpError(400, "Ставка уже сделана");
-  const round = C.round, b = { amt, auto, cashed: false, out: 0, pending: true };
-  C.bets.set(uid, b);
-  try {
-    const bal = await tx(async c => {
-      const u = await lockUser(c, uid);
-      if (!u) throw new HttpError(401, "Требуется вход");
-      if (u.banned) throw new HttpError(403, "Аккаунт заблокирован");
-      if (u.bal < amt) throw new HttpError(400, "Недостаточно звёзд — пополните баланс");
-      await c.query("UPDATE users SET bal=bal-$2 WHERE id=$1", [uid, amt]);
-      await c.query(`INSERT INTO crash_bets(user_id,round,amt,auto) VALUES($1,$2,$3,$4)
-        ON CONFLICT (user_id) DO UPDATE SET round=EXCLUDED.round, amt=EXCLUDED.amt, auto=EXCLUDED.auto`, [uid, round, amt, auto]);
-      return u.bal - amt;
-    });
-    if (C.phase !== "wait" || C.round !== round) { // раунд успел стартовать
-      C.bets.delete(uid);
-      await payOut(uid, amt);
-      throw new HttpError(400, "Раунд уже начался — ставка возвращена");
-    }
-    b.pending = false;
-    return { bal, bet: pub(b) };
-  } catch (e) { if (C.bets.get(uid) === b && b.pending) C.bets.delete(uid); throw e; }
-}
-
-async function cancel(uid) {
-  const b = C.bets.get(uid);
-  if (C.phase !== "wait" || !b || b.pending) throw new HttpError(400, "Отменить ставку нельзя");
-  C.bets.delete(uid);
-  const bal = await payOut(uid, b.amt);
-  return { bal };
-}
-
-async function cashout(uid) {
-  const b = C.bets.get(uid);
-  if (!b || b.cashed || b.pending) throw new HttpError(400, "Нет активной ставки");
-  const m = C.phase === "fly" ? Math.exp(GR * (Date.now() - C.t0) / 1000) : Infinity;
-  if (m >= C.cp) return { ok: false, bet: pub(b) };       // уже улетела
-  const mv = Math.floor(m * 100) / 100;
-  b.cashed = true; b.out = mv;                              // синхронно, до await
-  const win = Math.floor(b.amt * mv);
-  const bal = await payOut(uid, win);
-  return { ok: true, bal, win, bet: pub(b) };
-}
-
-return { start, state, bet, cancel, cashout };
-})();
-
 /* ---------- приложение ---------- */
 if (!process.env.DATABASE_URL) { console.error("Не задан DATABASE_URL (строка подключения Neon)"); process.exit(1); }
 
@@ -409,13 +275,12 @@ app.get("/api/me", A, H(async (req, res) => {
   const { rows } = await pool.query("SELECT * FROM users WHERE id=$1", [req.uid]);
   const u = rows[0]; if (!u) throw new HttpError(401, "Требуется вход");
   const inv = await invOf(pool, u.id);
-  const mg = (await pool.query("SELECT stake,n,opened FROM mines_games WHERE user_id=$1", [u.id])).rows[0] || null;
   const bc = (await pool.query(
     `SELECT id, text, ts FROM broadcasts b WHERE b.ts >= $2 AND NOT EXISTS
        (SELECT 1 FROM broadcast_seen s WHERE s.bc_id=b.id AND s.user_id=$1) ORDER BY id LIMIT 1`, [u.id, u.created_at])).rows[0];
   res.json({
     user: u.username, bal: u.bal, inv, games: u.games, wins: u.wins, profit: u.profit, v: u.v, banned: u.banned,
-    mines: mg, bc: bc ? { id: String(bc.id), text: bc.text, ts: new Date(bc.ts).getTime() } : null,
+    bc: bc ? { id: String(bc.id), text: bc.text, ts: new Date(bc.ts).getTime() } : null,
   });
 }));
 
@@ -461,8 +326,6 @@ app.post("/api/deposit", A, H(async (req, res) => {
 app.post("/api/reset", A, H(async (req, res) => {
   res.json(await tx(async c => {
     const u = await need(c, req.uid); play(u);
-    if ((await c.query("SELECT 1 FROM mines_games WHERE user_id=$1", [u.id])).rowCount || (await c.query("SELECT 1 FROM crash_bets WHERE user_id=$1", [u.id])).rowCount)
-      throw new HttpError(400, "Дождитесь конца игры");
     await c.query("DELETE FROM items WHERE user_id=$1", [u.id]);
     const r = (await c.query("UPDATE users SET bal=$2,games=0,wins=0,profit=0 WHERE id=$1 RETURNING *", [u.id, START])).rows[0];
     return snap(c, r);
@@ -500,71 +363,6 @@ app.post("/api/upgrade", A, H(async (req, res) => {
     return { win, chance, mult, T, value, d, ...(await snap(c, r)) };
   }));
 }));
-
-/* ---------- мины ---------- */
-app.post("/api/mines/start", A, H(async (req, res) => {
-  const stake = int(req.body.stake, 10, 1e12, "Минимальная ставка — 10 ⭐");
-  const n = Number(req.body.n);
-  if (!MINES_OK.includes(n)) throw new HttpError(400, "Неверное число мин");
-  res.json(await tx(async c => {
-    const u = await need(c, req.uid); play(u);
-    if ((await c.query("SELECT 1 FROM mines_games WHERE user_id=$1", [u.id])).rowCount) throw new HttpError(400, "Игра уже идёт");
-    if (u.bal < stake) throw new HttpError(400, "Недостаточно звёзд — пополните баланс");
-    const mines = shuffle([...Array(MN).keys()]).slice(0, n);
-    await c.query("UPDATE users SET bal=bal-$2 WHERE id=$1", [u.id, stake]);
-    await c.query("INSERT INTO mines_games(user_id,stake,n,mines) VALUES($1,$2,$3,$4)", [u.id, stake, n, mines]);
-    return { bal: u.bal - stake };
-  }));
-}));
-
-async function minesPayout(c, u, g, k) {
-  const win = Math.floor(g.stake * mMul(k, g.n));
-  const bal = (await c.query("UPDATE users SET bal=bal+$2 WHERE id=$1 RETURNING bal", [u.id, win])).rows[0].bal;
-  await c.query("DELETE FROM mines_games WHERE user_id=$1", [u.id]);
-  return { win, bal, mult: mMul(k, g.n) };
-}
-
-app.post("/api/mines/pick", A, H(async (req, res) => {
-  const i = int(req.body.i, 0, MN - 1, "Неверная клетка");
-  res.json(await tx(async c => {
-    const u = await need(c, req.uid); play(u);
-    const g = (await c.query("SELECT * FROM mines_games WHERE user_id=$1 FOR UPDATE", [u.id])).rows[0];
-    if (!g) throw new HttpError(400, "Игра не начата");
-    if (g.opened.includes(i)) throw new HttpError(400, "Клетка уже открыта");
-    if (g.mines.includes(i)) {
-      await c.query("DELETE FROM mines_games WHERE user_id=$1", [u.id]);
-      return { hit: true, mines: g.mines, lost: g.stake };
-    }
-    const opened = [...g.opened, i];
-    if (opened.length === MN - g.n) {            // открыли все безопасные — авто-выигрыш
-      const p = await minesPayout(c, u, g, opened.length);
-      return { hit: false, done: true, k: opened.length, mines: g.mines, ...p };
-    }
-    await c.query("UPDATE mines_games SET opened=$2 WHERE user_id=$1", [u.id, opened]);
-    return { hit: false, k: opened.length };
-  }));
-}));
-
-app.post("/api/mines/cash", A, H(async (req, res) => {
-  res.json(await tx(async c => {
-    const u = await need(c, req.uid); play(u);
-    const g = (await c.query("SELECT * FROM mines_games WHERE user_id=$1 FOR UPDATE", [u.id])).rows[0];
-    if (!g) throw new HttpError(400, "Игра не начата");
-    if (!g.opened.length) throw new HttpError(400, "Сначала откройте клетку");
-    const p = await minesPayout(c, u, g, g.opened.length);
-    return { k: g.opened.length, mines: g.mines, stake: g.stake, ...p };
-  }));
-}));
-
-/* ---------- краш ---------- */
-app.get("/api/crash", A, (req, res) => res.json(crash.state(req.uid)));
-app.post("/api/crash/bet", A, H(async (req, res) => {
-  const amt = int(req.body.amt, 10, 1e12, "Минимальная ставка — 10 ⭐");
-  let a = parseFloat(req.body.auto) || 0; a = a >= 1.1 ? Math.min(a, 1000) : 0;
-  res.json(await crash.bet(req.uid, amt, a));
-}));
-app.post("/api/crash/cancel", A, H(async (req, res) => res.json(await crash.cancel(req.uid))));
-app.post("/api/crash/cashout", A, H(async (req, res) => res.json(await crash.cashout(req.uid))));
 
 /* ---------- админка (пароль только на сервере: ADMIN_PASS) ---------- */
 const AD = (req, res, next) => {
@@ -635,7 +433,6 @@ app.use((err, req, res, next) => {
 
 (async () => {
   await migrate();
-  await crash.start();
   const port = process.env.PORT || 3000;
   app.listen(port, () => { console.log("KaratUp on :" + port); bot.init(); });
 })().catch(e => { console.error("Startup failed:", e); process.exit(1); });
